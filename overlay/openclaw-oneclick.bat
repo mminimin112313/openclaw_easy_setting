@@ -47,9 +47,21 @@ if defined HAS_SETUP if defined HAS_SOUL_BACKUP (
   if defined FORCE_WIZARD goto :run_wizard
   if defined FORCE_QUICK goto :run_quick
   echo [INFO] Existing setup and encrypted backup detected.
-  set /p RUN_WIZARD=Run setup wizard now? (y/N):
-  if /I "%RUN_WIZARD%"=="Y" goto :run_wizard
-  if /I "%RUN_WIZARD%"=="YES" goto :run_wizard
+  set /p RUN_WIZARD=Run setup wizard now? y or N:
+)
+
+if defined HAS_SETUP if defined HAS_SOUL_BACKUP (
+  setlocal EnableDelayedExpansion
+  set "RUN_WIZARD=!RUN_WIZARD: =!"
+  if /I "!RUN_WIZARD!"=="Y" (
+    endlocal
+    goto :run_wizard
+  )
+  if /I "!RUN_WIZARD!"=="YES" (
+    endlocal
+    goto :run_wizard
+  )
+  endlocal
   goto :run_quick
 )
 
