@@ -32,6 +32,17 @@ function Ask-YesNo([string]$message, [string]$title = "OpenClaw Easy Setting") {
   return $res -eq [System.Windows.Forms.DialogResult]::Yes
 }
 
+function Get-GitStatusPorcelain([string]$repoPath) {
+  $output = & git -C $repoPath status --porcelain 2>$null
+  if ($LASTEXITCODE -ne 0) { return @() }
+  if ($null -eq $output) { return @() }
+  if ($output -is [string]) {
+    if ([string]::IsNullOrWhiteSpace($output)) { return @() }
+    return @($output)
+  }
+  return @($output)
+}
+
 try {
   $root = Split-Path -Parent $PSCommandPath
   $defaultTarget = Join-Path $HOME "openclaw-easy\openclaw"
@@ -64,8 +75,21 @@ Continue?
     git clone https://github.com/openclaw/openclaw.git $defaultTarget
     if ($LASTEXITCODE -ne 0) { Fail "Failed to clone openclaw repository." }
   } else {
-    git -C $defaultTarget pull --rebase
-    if ($LASTEXITCODE -ne 0) { Fail "Failed to update existing openclaw directory." }
+    if (-not (Test-Path (Join-Path $defaultTarget ".git"))) {
+      Fail "Target folder exists but is not a git repository: $defaultTarget"
+    }
+
+    $dirty = Get-GitStatusPorcelain -repoPath $defaultTarget
+    if ($dirty.Count -gt 0) {
+      Info ("Existing OpenClaw folder has local changes. " +
+        "Skipping 'git pull --rebase' to keep your changes safe.")
+    } else {
+      git -C $defaultTarget pull --rebase
+      if ($LASTEXITCODE -ne 0) {
+        Info ("Could not update existing OpenClaw folder. " +
+          "Continuing with current local copy.")
+      }
+    }
   }
 
   Info "Applying easy-setting overlay files..."
