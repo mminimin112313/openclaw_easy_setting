@@ -1,39 +1,36 @@
-# OpenClaw Easy Setting (Windows 초보자용)
+﻿# OpenClaw Easy Setting (Windows)
 
-이 저장소는 **아무것도 모르는 초보자**도 OpenClaw를 설치/실행할 수 있도록 만든 패키지입니다.
+This repository is a beginner-friendly package to install and run OpenClaw on Windows with minimal manual steps.
 
-## 한 줄 요약
+## Quick Start
 
-1. `bootstrap-openclaw-easy.bat` 더블클릭
-2. 팝업에서 `예` 누르기
-3. 설치 완료 후 열린 브라우저 화면에서 텔레그램 키/백업 암호 입력
+1. Run `bootstrap-openclaw-easy.bat`.
+2. Click **Yes** in the popup.
+3. Wait for clone + overlay + installer.
+4. Complete the setup wizard (Telegram token/chat id, backup passphrase, admin password).
 
-## 무엇을 자동으로 하나요
+## What It Does Automatically
 
-- OpenClaw 원본 저장소 자동 클론
-- 이 저장소의 안전한 설정 파일(overlay) 자동 적용
-- Git / Docker Desktop 자동 설치(없을 때)
-- Docker 실행 확인
-- 개인정보/토큰 하드코딩 검사
-- OpenClaw 이미지 빌드
-- 원클릭 실행 및 설정 화면 열기
+- Clones or updates `https://github.com/openclaw/openclaw`
+- Applies all files from `overlay/` into the OpenClaw repo
+- Runs Windows installer scripts
+- Performs basic security hardcode audit
+- Starts control-plane and opens admin UI
 
-## 포함된 추가 스킬 (overlay)
+## Included Overlay Skills
 
-- `openai-whisper`: 로컬 Whisper 전사
-- `openai-whisper-api`: OpenAI Whisper API 전사
-- `youtube-subs`: 유튜브 영상/플레이리스트 자막 다운로드
-- `video-frames`: ffmpeg 기반 프레임/클립 추출
+- `openai-whisper`
+- `openai-whisper-api`
+- `youtube-subs`
+- `video-frames`
 
-참고: `playwright` 이름의 별도 스킬 디렉터리는 없어서, 브라우저 자동화는 OpenClaw 내장 브라우저 기능 + 위 스킬 조합으로 사용합니다.
+## Security Notes
 
-## 보안 원칙
+- No personal token/password should be hardcoded in this repo.
+- Backup passphrase is requested at runtime and should not be stored in plaintext.
+- Admin UI on port `2845` should remain password-protected.
 
-- 토큰/암호를 저장소에 하드코딩하지 않음
-- 백업 암호는 디스크에 저장하지 않고 실행 시 입력
-- 관리자 포트는 기본 로컬 바인딩
+## Entry Files
 
-## 실행 파일
-
-- `bootstrap-openclaw-easy.bat` : 초보자용 시작 파일 (권장)
-- `bootstrap-openclaw-easy.ps1` : PowerShell 버전
+- `bootstrap-openclaw-easy.bat` (recommended)
+- `bootstrap-openclaw-easy.ps1`
