@@ -1,0 +1,11 @@
+# never commit runtime state / secrets
+state/
+control-plane/state/
+**/.env
+**/.env.*
+**/secrets.enc
+**/auth.json
+**/auth-profiles.json
+**/*.openclawdata
+**/*.tar.gz
+

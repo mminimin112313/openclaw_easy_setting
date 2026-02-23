@@ -1,0 +1,17 @@
+:2845 {
+  encode gzip
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy openclaw-admin:3000
+  }
+
+  @openclaw path /openclaw/*
+  handle @openclaw {
+    reverse_proxy openclaw-gateway:18789
+  }
+
+  handle {
+    reverse_proxy openclaw-admin:3000
+  }
+}

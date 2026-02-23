@@ -1,0 +1,191 @@
+services:
+  router:
+    image: caddy:2.8-alpine
+    depends_on:
+      - openclaw-admin
+      - openclaw-gateway
+    ports:
+      - "${CONTROL_PLANE_BIND:-127.0.0.1}:${CONTROL_PLANE_PORT:-2845}:2845"
+    volumes:
+      - ./router/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - oc_internal
+      - oc_egress
+      - oc_public
+    restart: unless-stopped
+
+  openclaw-admin:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "1000:1000"
+    init: true
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      CONTROL_PLANE_STATE_DIR: /state
+      OPENCLAW_RUNTIME_DIR: /runtime
+      OPENCLAW_HOME_DIR: /openclaw-home
+      OPENCLAW_GATEWAY_LOG: /logs/openclaw-gateway.log
+      OPENCLAW_PROJECT_ROOT: /repo
+      OPENCLAW_SKILLS_ROOTS: /repo/skills
+      OPENCLAW_ADMIN_COOKIE_SECURE: ${OPENCLAW_ADMIN_COOKIE_SECURE:-0}
+    volumes:
+      - ./admin/server.mjs:/app/server.mjs:ro
+      - ./scripts:/scripts:ro
+      - ${OPENCLAW_STATE_HOST:-./state}:/state
+      - ..:/repo:ro
+      - ${OPENCLAW_RUNTIME_HOST:-./state/runtime}:/runtime
+      - ${OPENCLAW_HOME_HOST:-./state/openclaw-home}:/openclaw-home
+      - ${OPENCLAW_LOGS_HOST:-./state/logs}:/logs
+    networks:
+      - oc_internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "1000:1000"
+    init: true
+    env_file:
+      - path: ./state/.env.runtime
+        required: false
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_NO_RESPAWN: "1"
+      OPENCLAW_CONTROL_UI_BASE_PATH: /openclaw/
+      PLAYWRIGHT_BROWSERS_PATH: /home/node/.openclaw/ms-playwright
+      OPENCLAW_AUTO_CODEX_ROUTING: ${OPENCLAW_AUTO_CODEX_ROUTING:-1}
+      OPENCLAW_AUTO_CODEX_MODELS: ${OPENCLAW_AUTO_CODEX_MODELS:-openai-codex/gpt-5.3-codex,openai-codex/gpt-5.2}
+      OPENCLAW_BACKUP_SOURCE: /home/node/.openclaw
+      OPENCLAW_BACKUP_DIR: /state/backups
+      OPENCLAW_BACKUP_STATUS_FILE: /state/backups/.manual-backup-status.json
+      OPENCLAW_BACKUP_MAX_KEEP: ${OPENCLAW_BACKUP_MAX_KEEP:-72}
+      OPENCLAW_BACKUP_PASSPHRASE: ${OPENCLAW_BACKUP_PASSPHRASE:-}
+    command:
+      - sh
+      - -lc
+      - |
+        BIN_DIR=/home/node/.openclaw/bin
+        PW_DIR=/home/node/.openclaw/ms-playwright
+        mkdir -p "$$BIN_DIR"
+        CHROME_BIN="$$(command -v chromium 2>/dev/null || true)"
+        if [ -z "$$CHROME_BIN" ]; then
+          CHROME_BIN="$$(command -v google-chrome 2>/dev/null || true)"
+        fi
+        if [ -z "$$CHROME_BIN" ]; then
+          CHROME_BIN="$$(find "$$PW_DIR" -maxdepth 4 -type f -path '*/chrome-linux64/chrome' 2>/dev/null | head -n1)"
+        fi
+        if [ -n "$$CHROME_BIN" ]; then
+          printf '#!/bin/sh\nexec "%s" "$$@"\n' "$$CHROME_BIN" > "$$BIN_DIR/chromium"
+          chmod 755 "$$BIN_DIR/chromium"
+          ln -sf "$$BIN_DIR/chromium" "$$BIN_DIR/google-chrome"
+          node dist/index.js config set browser.executablePath "$$CHROME_BIN" >/dev/null 2>&1 || true
+        fi
+        # Runtime-safe manual backup entrypoint for agents.
+        cat > "$$BIN_DIR/backup-now" <<'EOF'
+        #!/bin/sh
+        set -eu
+        exec sh /scripts/backup-openclaw-state.sh
+        EOF
+        chmod 755 "$$BIN_DIR/backup-now"
+        export PATH="$$BIN_DIR:$$PATH"
+        node dist/index.js config set browser.headless true >/dev/null 2>&1 || true
+        node dist/index.js config set browser.noSandbox true >/dev/null 2>&1 || true
+        exec node dist/index.js gateway run --bind lan --port 18789 --allow-unconfigured
+    volumes:
+      - ${OPENCLAW_HOME_HOST:-./state/openclaw-home}:/home/node/.openclaw
+      - ${OPENCLAW_RUNTIME_HOST:-./state/runtime}:/runtime:ro
+      - ${OPENCLAW_LOGS_HOST:-./state/logs}:/tmp/openclaw
+      - ${OPENCLAW_STATE_HOST:-./state}/backups:/state/backups
+      - ./scripts/backup-openclaw-state.sh:/scripts/backup-openclaw-state.sh:ro
+    networks:
+      - oc_internal
+      - oc_egress
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "1000:1000"
+    init: true
+    network_mode: "service:openclaw-gateway"
+    env_file:
+      - path: ./state/.env.runtime
+        required: false
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      PATH: /home/node/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      BROWSER: echo
+      PLAYWRIGHT_BROWSERS_PATH: /home/node/.openclaw/ms-playwright
+      OPENCLAW_BACKUP_SOURCE: /home/node/.openclaw
+      OPENCLAW_BACKUP_DIR: /state/backups
+      OPENCLAW_BACKUP_STATUS_FILE: /state/backup-status.json
+      OPENCLAW_BACKUP_MAX_KEEP: ${OPENCLAW_BACKUP_MAX_KEEP:-72}
+      OPENCLAW_BACKUP_PASSPHRASE: ${OPENCLAW_BACKUP_PASSPHRASE:-}
+    volumes:
+      - ${OPENCLAW_HOME_HOST:-./state/openclaw-home}:/home/node/.openclaw
+      - ${OPENCLAW_RUNTIME_HOST:-./state/runtime}:/runtime
+      - ${OPENCLAW_STATE_HOST:-./state}:/state
+      - ./scripts:/scripts:ro
+    command: ["sleep", "infinity"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  openclaw-backup:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "1000:1000"
+    init: true
+    env_file:
+      - path: ./state/.env.runtime
+        required: false
+    environment:
+      OPENCLAW_BACKUP_SOURCE: /home/node/.openclaw
+      OPENCLAW_BACKUP_DIR: /state/backups
+      OPENCLAW_BACKUP_STATUS_FILE: /state/backup-status.json
+      OPENCLAW_BACKUP_MAX_KEEP: ${OPENCLAW_BACKUP_MAX_KEEP:-72}
+      OPENCLAW_BACKUP_INTERVAL_SEC: ${OPENCLAW_BACKUP_INTERVAL_SEC:-3600}
+      OPENCLAW_BACKUP_PASSPHRASE: ${OPENCLAW_BACKUP_PASSPHRASE:-}
+    volumes:
+      - ${OPENCLAW_HOME_HOST:-./state/openclaw-home}:/home/node/.openclaw:ro
+      - ${OPENCLAW_STATE_HOST:-./state}:/state
+      - ./scripts:/scripts:ro
+    command:
+      - sh
+      - -lc
+      - |
+        while true; do
+          if [ -z "$$OPENCLAW_BACKUP_PASSPHRASE" ]; then
+            printf '{"ok":false,"timestamp":"%s","error":"missing_passphrase"}\n' "$$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /state/backup-status.json
+            echo "[backup] OPENCLAW_BACKUP_PASSPHRASE is missing; waiting."
+          elif sh /scripts/backup-openclaw-state.sh; then
+            :
+          else
+            printf '{"ok":false,"timestamp":"%s","error":"backup_failed"}\n' "$$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /state/backup-status.json
+            echo "[backup] run failed; status written to /state/backup-status.json"
+          fi
+          sleep "$$OPENCLAW_BACKUP_INTERVAL_SEC"
+        done
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+networks:
+  oc_internal:
+    internal: true
+  oc_egress:
+    driver: bridge
+  oc_public:
+    driver: bridge
