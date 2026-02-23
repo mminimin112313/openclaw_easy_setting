@@ -18,6 +18,15 @@
 - OpenClaw 이미지 빌드
 - 원클릭 실행 및 설정 화면 열기
 
+## 포함된 추가 스킬 (overlay)
+
+- `openai-whisper`: 로컬 Whisper 전사
+- `openai-whisper-api`: OpenAI Whisper API 전사
+- `youtube-subs`: 유튜브 영상/플레이리스트 자막 다운로드
+- `video-frames`: ffmpeg 기반 프레임/클립 추출
+
+참고: `playwright` 이름의 별도 스킬 디렉터리는 없어서, 브라우저 자동화는 OpenClaw 내장 브라우저 기능 + 위 스킬 조합으로 사용합니다.
+
 ## 보안 원칙
 
 - 토큰/암호를 저장소에 하드코딩하지 않음
@@ -28,4 +37,3 @@
 
 - `bootstrap-openclaw-easy.bat` : 초보자용 시작 파일 (권장)
 - `bootstrap-openclaw-easy.ps1` : PowerShell 버전
-
