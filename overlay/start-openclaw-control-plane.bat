@@ -42,7 +42,11 @@ if not exist "%OPENCLAW_HOME_HOST%" (
 
 echo.
 echo [SECURITY] Backup passphrase is no longer saved on disk.
-set /p OPENCLAW_BACKUP_PASSPHRASE=Enter backup passphrase for this run:
+if defined OPENCLAW_BACKUP_PASSPHRASE (
+  echo [INFO] Using pre-supplied backup passphrase from environment.
+) else (
+  set /p OPENCLAW_BACKUP_PASSPHRASE=Enter backup passphrase for this run:
+)
 if not defined OPENCLAW_BACKUP_PASSPHRASE (
   echo [ERROR] Backup passphrase cannot be empty.
   exit /b 1
@@ -90,7 +94,7 @@ if defined SKIP_AUTH (
 )
 
 echo.
-echo [2/4] Start or recreate control-plane services
+echo [2/5] Start or recreate control-plane services
 docker compose -f "%COMPOSE_FILE%" up -d --force-recreate openclaw-gateway openclaw-cli openclaw-admin openclaw-backup router
 if errorlevel 1 (
   echo [ERROR] Failed to start control-plane services.
@@ -98,7 +102,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/4] Apply runtime defaults (restart + model routing)
+echo [3/5] Apply runtime defaults (restart + model routing)
 docker compose -f "%COMPOSE_FILE%" exec -T openclaw-cli sh -lc "openclaw config set commands.restart true && openclaw config set gateway.channelHealthCheckMinutes 1 && openclaw config set agents.defaults.model.primary openai-codex/gpt-5.2 && openclaw config set agents.defaults.model.fallbacks[0] openai-codex/gpt-5.3-codex"
 if errorlevel 1 (
   echo [ERROR] Failed to apply OpenClaw runtime defaults.

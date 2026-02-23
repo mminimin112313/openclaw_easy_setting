@@ -10,6 +10,7 @@ if not exist "%PS_SCRIPT%" (
 )
 
 echo [INFO] Running OpenClaw Windows installer...
+echo [INFO] Installer script path: "%PS_SCRIPT%"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%"
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
