@@ -10,6 +10,11 @@ set "HAS_SETUP="
 set "HAS_SOUL_BACKUP="
 set "EXIT_CODE=0"
 set "PS_INSTALLER=%CD%\scripts\windows\install-openclaw-windows.ps1"
+set "FORCE_WIZARD="
+set "FORCE_QUICK="
+
+if /I "%~1"=="--wizard" set "FORCE_WIZARD=1"
+if /I "%~1"=="--quick" set "FORCE_QUICK=1"
 
 where docker >nul 2>&1
 if errorlevel 1 (
@@ -39,6 +44,17 @@ for /f "delims=" %%F in ('dir /b /a:-d "%BACKUP_DIR%\openclaw-state_*.openclawda
 )
 
 if defined HAS_SETUP if defined HAS_SOUL_BACKUP (
+  if defined FORCE_WIZARD goto :run_wizard
+  if defined FORCE_QUICK goto :run_quick
+  echo [INFO] Existing setup and encrypted backup detected.
+  set /p RUN_WIZARD=Run setup wizard now? (y/N):
+  if /I "%RUN_WIZARD%"=="Y" goto :run_wizard
+  if /I "%RUN_WIZARD%"=="YES" goto :run_wizard
+  goto :run_quick
+)
+
+:run_quick
+if defined HAS_SETUP if defined HAS_SOUL_BACKUP (
   echo [INFO] Existing setup and encrypted backup detected.
   echo [INFO] Starting services in safe mode with --skip-auth.
   call "%~dp0start-openclaw-control-plane.bat" --skip-auth
@@ -49,6 +65,7 @@ if defined HAS_SETUP if defined HAS_SOUL_BACKUP (
   goto :done
 )
 
+:run_wizard
 echo [INFO] First-run or reconfiguration mode.
 if not exist "%PS_INSTALLER%" (
   echo [ERROR] Wizard script not found: "%PS_INSTALLER%"
